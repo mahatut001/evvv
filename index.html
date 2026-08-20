@@ -533,7 +533,8 @@
         class CarGuardingApp {
             constructor() {
                 this.tg = window.Telegram.WebApp;
-                this.apiUrl = 'https://carguarding.ru';  // Измени на свой API URL
+                // ИЗМЕНИ НА СВОЙ API URL (например: http://localhost:8000 для локальной разработки)
+                this.apiUrl = 'https://carguarding.ru';  
                 this.initData = this.tg.initData || '';
                 this.userId = null;
                 this.userData = null;
@@ -582,6 +583,7 @@
                         document.querySelectorAll('.radius-btn').forEach(b => b.classList.remove('active'));
                         e.target.classList.add('active');
                         this.selectedRadius = parseInt(e.target.dataset.radius);
+                        this.updateNotificationRadius(this.selectedRadius);
                     });
                 });
 
@@ -601,6 +603,9 @@
                     this.userData = response;
                     this.isParked = !!response.parking;
                     
+                    // Установить текущий радиус
+                    this.selectedRadius = response.user.notification_radius || 300;
+                    
                     if (this.isParked) {
                         this.parkingStartTime = new Date(response.parking.started_at);
                         this.startParkingTimer();
@@ -611,7 +616,7 @@
                 } catch (error) {
                     console.error('Load error:', error);
                     this.showScreen('mainScreen');
-                    this.showError('Ошибка загрузки данных: ' + error.message);
+                    this.showError('Ошибка загрузки: ' + error.message);
                 }
             }
 
@@ -628,14 +633,22 @@
                     options.body = JSON.stringify(body);
                 }
 
-                const response = await fetch(this.apiUrl + endpoint, options);
-                
-                if (!response.ok) {
-                    const error = await response.json().catch(() => ({}));
-                    throw new Error(error.detail || `HTTP ${response.status}`);
-                }
+                try {
+                    const response = await fetch(this.apiUrl + endpoint, options);
+                    
+                    if (!response.ok) {
+                        const error = await response.json().catch(() => ({}));
+                        throw new Error(error.detail || `HTTP ${response.status}`);
+                    }
 
-                return response.json();
+                    return response.json();
+                } catch (error) {
+                    // Проверяем если это проблема с API URL
+                    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                        throw new Error('Ошибка подключения. Проверьте API URL в коде.');
+                    }
+                    throw error;
+                }
             }
 
             updateStatusCard() {
@@ -670,7 +683,7 @@
                 };
 
                 updateTimer();
-                this.parkingUpdateInterval = setInterval(updateTimer, 30000); // Обновляем каждые 30 сек
+                this.parkingUpdateInterval = setInterval(updateTimer, 30000);
             }
 
             async getLocation() {
@@ -721,6 +734,7 @@
 
                     this.isParked = false;
                     if (this.parkingUpdateInterval) clearInterval(this.parkingUpdateInterval);
+                    document.getElementById('parkingTimer').style.display = 'none';
                     this.updateStatusCard();
 
                     this.showSuccess('✅ Парковка завершена!');
@@ -752,6 +766,9 @@
                     });
 
                     this.showSuccess(`✅ Сигнал отправлен!\nУведомлено ${result.notified} водителей`);
+                    
+                    // Обновляем данные
+                    await this.loadData();
                     setTimeout(() => this.backToMain(), 2000);
 
                 } catch (error) {
@@ -760,6 +777,19 @@
                 } finally {
                     btn.disabled = false;
                     btn.textContent = '⚠️ Отправить сигнал';
+                }
+            }
+
+            async updateNotificationRadius(radius) {
+                try {
+                    await this.apiCall('/api/notification-radius', 'POST', {
+                        radius: radius
+                    });
+                    this.userData.user.notification_radius = radius;
+                    this.updateStatusCard();
+                } catch (error) {
+                    console.error('Radius update error:', error);
+                    this.showError('Ошибка обновления радиуса');
                 }
             }
 
@@ -776,9 +806,11 @@
                 document.getElementById('profileKarma').textContent = user.trust_score;
                 document.getElementById('profileSignals').textContent = user.total_signals_sent;
                 document.getElementById('profileConfirmed').textContent = user.confirmed_signals;
-                document.getElementById('profileAccuracy').textContent = user.confirmed_signals === 0 
-                    ? '0%' 
+                
+                const accuracy = user.total_signals_sent === 0 
+                    ? 'Нет сигналов'
                     : Math.round((user.confirmed_signals / user.total_signals_sent) * 100) + '%';
+                document.getElementById('profileAccuracy').textContent = accuracy;
 
                 const subExpires = user.sub_expires ? new Date(user.sub_expires) : null;
                 const now = new Date();
@@ -795,19 +827,24 @@
                 ratingList.innerHTML = '<div class="loading"><div class="spinner"></div> Загрузка...</div>';
 
                 try {
-                    // Для примера показываем текущего пользователя
-                    // В реальности нужен эндпоинт /api/rating
-                    if (this.userData) {
-                        const user = this.userData.user;
-                        ratingList.innerHTML = `
+                    const result = await this.apiCall('/api/rating?limit=10', 'GET');
+                    
+                    if (result.rating && result.rating.length > 0) {
+                        ratingList.innerHTML = result.rating.map((user, index) => `
                             <div class="rating-item">
-                                <span class="rating-username">👤 @${user.username || 'unknown'} (вы)</span>
-                                <span class="rating-score">${user.total_signals_sent}</span>
+                                <div>
+                                    <div style="font-weight: 600; color: #333;">#${index + 1} @${user.username || 'unknown'}</div>
+                                    <div style="font-size: 12px; color: #999;">Точность: ${user.accuracy}%</div>
+                                </div>
+                                <span class="rating-score">${user.confirmed_signals}</span>
                             </div>
-                        `;
+                        `).join('');
+                    } else {
+                        ratingList.innerHTML = '<div style="padding: 12px; color: #999; text-align: center;">Пока нет репортеров</div>';
                     }
                 } catch (error) {
-                    ratingList.innerHTML = '<div style="padding: 12px; color: #999;">Ошибка загрузки рейтинга</div>';
+                    ratingList.innerHTML = '<div style="padding: 12px; color: #c62828; text-align: center;">Ошибка загрузки рейтинга</div>';
+                    console.error('Rating error:', error);
                 }
             }
 
@@ -823,6 +860,14 @@
                     }
                 } else {
                     this.showScreen('parkScreen');
+                    // Установить текущий радиус в кнопках
+                    document.querySelectorAll('.radius-btn').forEach(btn => {
+                        if (parseInt(btn.dataset.radius) === this.selectedRadius) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    });
                 }
             }
 
