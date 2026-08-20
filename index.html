@@ -193,13 +193,6 @@
             font-size: 14px;
         }
 
-        .input-group input {
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-
         .card {
             background: white;
             border: 1px solid #e0e0e0;
@@ -233,12 +226,6 @@
             border-bottom: none;
         }
 
-        .rating-username {
-            font-weight: 600;
-            color: #333;
-            flex: 1;
-        }
-
         .rating-score {
             font-weight: 600;
             color: #0088cc;
@@ -267,26 +254,6 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
-        }
-
-        .error-message {
-            background: #ffebee;
-            color: #c62828;
-            border-left: 4px solid #c62828;
-            padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 12px;
-            font-size: 14px;
-        }
-
-        .success-message {
-            background: #e8f5e9;
-            color: #2e7d32;
-            border-left: 4px solid #2e7d32;
-            padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 12px;
-            font-size: 14px;
         }
 
         .footer {
@@ -328,15 +295,6 @@
             border-color: #0088cc;
         }
 
-        .radius-btn:active:not(.active) {
-            background: #f0f0f0;
-        }
-
-        .emoji {
-            font-size: 1.2em;
-            margin-right: 4px;
-        }
-
         .back-btn {
             margin-bottom: 12px;
             padding: 10px;
@@ -359,16 +317,7 @@
             border-radius: 12px;
             z-index: 1000;
             text-align: center;
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from { transform: translate(-50%, -60%); opacity: 0; }
-            to { transform: translate(-50%, -50%); opacity: 1; }
-        }
-
-        .hidden {
-            display: none !important;
+            transition: opacity 0.3s ease;
         }
     </style>
 </head>
@@ -441,8 +390,6 @@
                 <button class="btn btn-primary" id="getLocationBtn" style="margin-top: 20px;">
                     📍 Отправить геолокацию
                 </button>
-
-                <div id="parkMessage"></div>
             </div>
 
             <!-- Экран эвакуатора -->
@@ -458,8 +405,6 @@
                 <button class="btn btn-danger" id="reportTowBtn" style="margin-top: 20px;">
                     ⚠️ Отправить сигнал
                 </button>
-
-                <div id="towMessage"></div>
             </div>
 
             <!-- Экран профиля -->
@@ -525,16 +470,16 @@
         </div>
 
         <div class="footer" id="footer">
-            CarGuarding • Версия 1.0 • API: готово ✓
+            CarGuarding • Версия 1.0
         </div>
     </div>
 
     <script>
         class CarGuardingApp {
             constructor() {
-                this.tg = window.Telegram.WebApp;
-                // ИЗМЕНИ НА СВОЙ API URL (например: http://localhost:8000 для локальной разработки)
-                this.apiUrl = 'https://mahatut001.github.io/evvv/';  
+                this.tg = window.Telegram?.WebApp || {};
+                // УКАЖИТЕ АДРЕС БЭКЕНД-СЕРВЕРА (например, https://api.yourdomain.com или http://localhost:8000)
+                this.apiUrl = 'http://localhost:8000';  
                 this.initData = this.tg.initData || '';
                 this.userId = null;
                 this.userData = null;
@@ -542,17 +487,18 @@
                 this.isParked = false;
                 this.parkingStartTime = null;
                 this.parkingUpdateInterval = null;
-                this.devMode = !this.initData; // DEV MODE если initData пуста
+                this.devMode = !this.initData;
 
                 this.init();
             }
 
             init() {
-                this.tg.ready();
-                this.tg.setHeaderColor('#0088cc');
-                this.tg.expand();
+                if (this.tg.ready) {
+                    this.tg.ready();
+                    this.tg.setHeaderColor?.('#0088cc');
+                    this.tg.expand?.();
+                }
 
-                // Получаем ID пользователя из initData
                 try {
                     const params = new URLSearchParams(this.initData);
                     const userStr = params.get('user');
@@ -560,16 +506,12 @@
                         const user = JSON.parse(userStr);
                         this.userId = user.id;
                     } else if (this.devMode) {
-                        // DEV MODE: используем фейковый ID из URL или просто 123456789
                         const urlParams = new URLSearchParams(window.location.search);
                         this.userId = parseInt(urlParams.get('user_id') || '123456789');
-                        console.log('🔧 DEV MODE: используется ID', this.userId);
                     }
                 } catch (e) {
                     console.error('Error parsing user:', e);
-                    if (this.devMode) {
-                        this.userId = 123456789;
-                    }
+                    if (this.devMode) this.userId = 123456789;
                 }
 
                 this.setupEventListeners();
@@ -577,16 +519,12 @@
             }
 
             setupEventListeners() {
-                // Главное меню
                 document.getElementById('parkBtn').addEventListener('click', () => this.showParkScreen());
                 document.getElementById('towBtn').addEventListener('click', () => this.showTowScreen());
                 document.getElementById('profileBtn').addEventListener('click', () => this.showProfileScreen());
                 document.getElementById('ratingBtn').addEventListener('click', () => this.showRatingScreen());
-
-                // Парковка
                 document.getElementById('getLocationBtn').addEventListener('click', () => this.getLocation());
 
-                // Радиус
                 document.querySelectorAll('.radius-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         document.querySelectorAll('.radius-btn').forEach(b => b.classList.remove('active'));
@@ -596,12 +534,13 @@
                     });
                 });
 
-                // Эвакуатор
                 document.getElementById('reportTowBtn').addEventListener('click', () => this.reportTow());
-
-                // Профиль
                 document.getElementById('buySubBtn').addEventListener('click', () => {
-                    this.tg.openTelegramLink('https://t.me/car_guard');
+                    if (this.tg.openTelegramLink) {
+                        this.tg.openTelegramLink('https://t.me/car_guard');
+                    } else {
+                        window.open('https://t.me/car_guard', '_blank');
+                    }
                 });
             }
 
@@ -611,11 +550,9 @@
                     const response = await this.apiCall('/api/me', 'GET');
                     this.userData = response;
                     this.isParked = !!response.parking;
+                    this.selectedRadius = response.user?.notification_radius || 300;
                     
-                    // Установить текущий радиус
-                    this.selectedRadius = response.user.notification_radius || 300;
-                    
-                    if (this.isParked) {
+                    if (this.isParked && response.parking?.started_at) {
                         this.parkingStartTime = new Date(response.parking.started_at);
                         this.startParkingTimer();
                     }
@@ -632,49 +569,42 @@
             async apiCall(endpoint, method = 'GET', body = null) {
                 const options = {
                     method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
+                    headers: { 'Content-Type': 'application/json' }
                 };
 
-                // В DEV MODE отправляем X-Telegram-Id вместо initData
                 if (this.devMode) {
                     options.headers['X-Telegram-Id'] = String(this.userId);
                 } else {
                     options.headers['X-Telegram-Init-Data'] = this.initData;
                 }
 
-                if (body) {
-                    options.body = JSON.stringify(body);
-                }
+                if (body) options.body = JSON.stringify(body);
 
                 try {
                     const response = await fetch(this.apiUrl + endpoint, options);
-                    
                     if (!response.ok) {
                         const error = await response.json().catch(() => ({}));
                         throw new Error(error.detail || `HTTP ${response.status}`);
                     }
-
                     return response.json();
                 } catch (error) {
-                    // Проверяем если это проблема с API URL
                     if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                        throw new Error('Ошибка подключения. Проверьте API URL в коде.');
+                        throw new Error('Ошибка сети. Проверьте адрес apiUrl в скрипте.');
                     }
                     throw error;
                 }
             }
 
             updateStatusCard() {
-                if (!this.userData) return;
+                if (!this.userData?.user) return;
 
                 const parkStatus = this.isParked ? '✅ ДА' : '❌ НЕТ';
                 const guardStatus = this.isParked ? '🟢 ВКЛ' : '🔴 ВЫКЛ';
                 const karma = this.userData.user.trust_score || 100;
+                const radius = this.userData.user.notification_radius || this.selectedRadius;
 
                 document.getElementById('parkStatus').textContent = parkStatus;
-                document.getElementById('guardStatus').textContent = guardStatus + ` (${this.userData.user.notification_radius}м)`;
+                document.getElementById('guardStatus').textContent = guardStatus + ` (${radius}м)`;
                 document.getElementById('karmaStatus').textContent = karma;
 
                 document.getElementById('parkBtnText').textContent = this.isParked 
@@ -780,9 +710,7 @@
                         longitude
                     });
 
-                    this.showSuccess(`✅ Сигнал отправлен!\nУведомлено ${result.notified} водителей`);
-                    
-                    // Обновляем данные
+                    this.showSuccess(`✅ Сигнал отправлен!\nУведомлено ${result.notified || 0} водителей`);
                     await this.loadData();
                     setTimeout(() => this.backToMain(), 2000);
 
@@ -800,7 +728,9 @@
                     await this.apiCall('/api/notification-radius', 'POST', {
                         radius: radius
                     });
-                    this.userData.user.notification_radius = radius;
+                    if (this.userData?.user) {
+                        this.userData.user.notification_radius = radius;
+                    }
                     this.updateStatusCard();
                 } catch (error) {
                     console.error('Radius update error:', error);
@@ -810,19 +740,16 @@
 
             async showProfileScreen() {
                 this.showScreen('profileScreen');
-                
-                if (!this.userData) {
-                    await this.loadData();
-                }
+                if (!this.userData) await this.loadData();
 
-                const user = this.userData.user;
-                document.getElementById('profileTgId').textContent = user.telegram_id;
+                const user = this.userData?.user || {};
+                document.getElementById('profileTgId').textContent = user.telegram_id || '-';
                 document.getElementById('profileUsername').textContent = '@' + (user.username || 'unknown');
-                document.getElementById('profileKarma').textContent = user.trust_score;
-                document.getElementById('profileSignals').textContent = user.total_signals_sent;
-                document.getElementById('profileConfirmed').textContent = user.confirmed_signals;
+                document.getElementById('profileKarma').textContent = user.trust_score || 0;
+                document.getElementById('profileSignals').textContent = user.total_signals_sent || 0;
+                document.getElementById('profileConfirmed').textContent = user.confirmed_signals || 0;
                 
-                const accuracy = user.total_signals_sent === 0 
+                const accuracy = !user.total_signals_sent 
                     ? 'Нет сигналов'
                     : Math.round((user.confirmed_signals / user.total_signals_sent) * 100) + '%';
                 document.getElementById('profileAccuracy').textContent = accuracy;
@@ -831,7 +758,7 @@
                 const now = new Date();
                 const subInfo = user.is_subscribed && subExpires && subExpires > now
                     ? `✅ Активна до ${subExpires.toLocaleDateString('ru-RU')}`
-                    : '❌ Неактивна (3 часа триала)';
+                    : '❌ Неактивна';
                 
                 document.getElementById('subscriptionInfo').textContent = subInfo;
             }
@@ -875,7 +802,6 @@
                     }
                 } else {
                     this.showScreen('parkScreen');
-                    // Установить текущий радиус в кнопках
                     document.querySelectorAll('.radius-btn').forEach(btn => {
                         if (parseInt(btn.dataset.radius) === this.selectedRadius) {
                             btn.classList.add('active');
@@ -892,7 +818,6 @@
 
             backToMain() {
                 this.showScreen('mainScreen');
-                this.loadData();
             }
 
             refreshData() {
@@ -909,12 +834,8 @@
 
             showNotification(message, type) {
                 const notification = document.createElement('div');
-                notification.className = `notification ${type}-message`;
-                if (type === 'success') {
-                    notification.style.background = '#2e7d32';
-                } else {
-                    notification.style.background = '#c62828';
-                }
+                notification.className = 'notification';
+                notification.style.background = type === 'success' ? '#2e7d32' : '#c62828';
                 notification.textContent = message;
                 document.body.appendChild(notification);
 
@@ -925,8 +846,11 @@
             }
         }
 
-        // Инициализация приложения
-        window.app = new CarGuardingApp();
+        let app;
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new CarGuardingApp();
+            window.app = app;
+        });
     </script>
 </body>
 </html>
