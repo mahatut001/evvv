@@ -1,28 +1,26 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#101b2d">
   <title>CarGuarding Mini App</title>
   
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   
-  <!-- Leaflet CSS & JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet CSS (Карта) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   
   <style>
     :root {
-      --bg-color: #101b2d;
-      --card-bg: #1c2e4a;
-      --card-border: rgba(255, 255, 255, 0.08);
-      --accent: #3390ec;
-      --danger: #ff3b30;
-      --success: #34c759;
-      --text-main: #ffffff;
-      --text-muted: #8899a6;
+      --bg-color: var(--tg-theme-bg-color, #17212b);
+      --text-color: var(--tg-theme-text-color, #ffffff);
+      --hint-color: var(--tg-theme-hint-color, #708499);
+      --button-color: var(--tg-theme-button-color, #5288c1);
+      --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+      --secondary-bg: var(--tg-theme-secondary-bg-color, #232e3c);
+      --danger-color: #e53935;
+      --success-color: #4caf50;
     }
 
     * {
@@ -30,505 +28,318 @@
       margin: 0;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
       background-color: var(--bg-color);
-      color: var(--text-main);
-      padding-bottom: 80px;
-    }
-
-    .app-shell {
-      padding: 16px;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    /* Topbar */
-    .topbar {
+      color: var(--text-color);
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-
-    .eyebrow {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--text-muted);
-      margin-bottom: 2px;
-    }
-
-    .topbar h1 {
-      font-size: 20px;
-      font-weight: 700;
-    }
-
-    .avatar-button {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      color: var(--text-main);
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-
-    /* Tabs */
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    /* Map Card */
-    .map-card {
-      position: relative;
-      background: var(--card-bg);
-      border-radius: 16px;
+      flex-direction: column;
+      height: 100vh;
       overflow: hidden;
-      border: 1px solid var(--card-border);
-      margin-bottom: 16px;
     }
 
+    /* Контейнер карты */
     #map {
-      height: 240px;
+      flex: 1;
       width: 100%;
       z-index: 1;
     }
 
-    .locate-button {
-      position: absolute;
-      bottom: 16px;
-      right: 16px;
+    /* Нижняя панель управления */
+    .bottom-sheet {
+      background-color: var(--secondary-bg);
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
       z-index: 10;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      color: var(--text-main);
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      font-size: 18px;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
-    /* Protection Panel */
-    .protection-panel, .section-container, .profile-card {
-      background: var(--card-bg);
-      border-radius: 16px;
-      padding: 20px;
-      border: 1px solid var(--card-border);
-      margin-bottom: 16px;
-    }
-
-    .protection-heading {
+    .status-card {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 16px;
-    }
-
-    .section-kicker {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-
-    .protection-heading h2 {
-      font-size: 18px;
-      display: flex;
       align-items: center;
-      gap: 8px;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--success);
-      display: inline-block;
-    }
-
-    .status-dot.offline {
-      background: var(--text-muted);
-    }
-
-    .time-badge {
-      background: rgba(255,255,255,0.08);
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .stats-row {
-      display: flex;
-      justify-content: space-between;
-      background: rgba(0,0,0,0.15);
+      background: rgba(255,255,255,0.05);
       padding: 12px 16px;
       border-radius: 12px;
-      margin-bottom: 16px;
     }
 
-    .stats-row div {
+    .status-info {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+    }
+
+    .status-title {
       font-size: 12px;
-      color: var(--text-muted);
+      color: var(--hint-color);
     }
 
-    .stats-row strong {
-      color: var(--text-main);
-      font-size: 14px;
-    }
-
-    /* Buttons */
-    .primary-button {
-      width: 100%;
-      padding: 14px;
-      background: var(--accent);
-      border: none;
-      border-radius: 12px;
-      color: white;
-      font-weight: 600;
-      font-size: 15px;
-      cursor: pointer;
-      margin-bottom: 10px;
-      transition: opacity 0.2s;
-    }
-
-    .primary-button:active {
-      opacity: 0.8;
-    }
-
-    .primary-button.danger {
-      background: var(--danger);
-    }
-
-    .secondary-button {
-      width: 100%;
-      padding: 14px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      color: var(--text-main);
-      font-weight: 600;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    .secondary-button.danger {
-      color: var(--danger);
-      border-color: rgba(255, 59, 48, 0.3);
-    }
-
-    /* Bottom Nav */
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: #142238;
-      border-top: 1px solid var(--card-border);
-      display: flex;
-      justify-content: space-around;
-      padding: 10px 0;
-      z-index: 100;
-    }
-
-    .nav-item {
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      font-size: 11px;
-      cursor: pointer;
-    }
-
-    .nav-item span {
-      font-size: 18px;
-    }
-
-    .nav-item.is-active {
-      color: var(--accent);
-    }
-
-    /* Profile specifics */
-    .profile-header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-
-    .profile-avatar {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background: var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
+    .status-value {
+      font-size: 16px;
       font-weight: bold;
     }
 
-    .profile-id {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-
-    .sub-status-box {
-      background: rgba(51, 144, 236, 0.1);
-      border: 1px solid rgba(51, 144, 236, 0.3);
-      padding: 14px;
-      border-radius: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-
-    .buy-sub-btn {
-      background: var(--accent);
-      border: none;
-      color: white;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .stats-grid {
+    /* Кнопки действий */
+    .action-buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin-bottom: 20px;
     }
 
-    .stat-item {
-      background: rgba(0,0,0,0.15);
-      padding: 12px;
-      border-radius: 10px;
+    .btn {
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .stat-item strong {
-      color: var(--text-main);
-      font-size: 16px;
-    }
-
-    /* Modals */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.7);
-      z-index: 1000;
-      padding: 20px;
       align-items: center;
       justify-content: center;
+      gap: 8px;
+      transition: opacity 0.2s;
     }
 
-    .modal-overlay.open {
+    .btn:active {
+      opacity: 0.8;
+    }
+
+    .btn-park {
+      background-color: var(--success-color);
+      color: #fff;
+    }
+
+    .btn-park.active {
+      background-color: var(--danger-color);
+    }
+
+    .btn-tow {
+      background-color: var(--danger-color);
+      color: #fff;
+    }
+
+    /* Переключатель вкладок внизу */
+    .nav-bar {
       display: flex;
+      justify-content: space-around;
+      background-color: var(--bg-color);
+      padding: 10px 0;
+      border-top: 1px solid rgba(255,255,255,0.05);
     }
 
-    .modal-content {
-      background: var(--card-bg);
-      width: 100%;
-      max-width: 400px;
-      padding: 24px;
-      border-radius: 20px;
-      border: 1px solid var(--card-border);
-      position: relative;
-    }
-
-    .modal-close {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 24px;
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: var(--hint-color);
+      font-size: 10px;
       cursor: pointer;
+      text-decoration: none;
+    }
+
+    .nav-item.active {
+      color: var(--button-color);
+    }
+
+    .nav-icon {
+      font-size: 20px;
+    }
+
+    /* Экраны для других разделов */
+    .page {
+      display: none;
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .profile-card {
+      background: var(--secondary-bg);
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 12px;
     }
   </style>
 </head>
 <body>
-  <main class="app-shell">
+
+  <!-- ВКЛАДКА 1: КАРТА И УПРАВЛЕНИЕ -->
+  <div id="page-map" class="page-container" style="display: flex; flex-direction: column; height: 100%;">
+    <div id="map"></div>
     
-    <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">CarGuarding</p>
-        <h1 id="headerTitle">Машина под защитой</h1>
+    <div class="bottom-sheet">
+      <div class="status-card">
+        <div class="status-info">
+          <span class="status-title">СТАТУС ОХРАНЫ</span>
+          <span id="park-status-text" class="status-value" style="color: var(--danger-color);">🔴 Не припаркован</span>
+        </div>
+        <div class="status-info" style="text-align: right;">
+          <span class="status-title">РАДИУС</span>
+          <span id="radius-val" class="status-value">300м</span>
+        </div>
       </div>
-      <button class="avatar-button" id="userAvatarBtn" data-tab="profile">
-        <span id="avatarLetter">U</span>
-      </button>
-    </header>
 
-    <!-- ВКЛАДКА 1: ГЛАВНАЯ -->
-    <div id="tab-home" class="tab-content active">
-      <section class="map-card">
-        <div id="map"></div>
-        <button class="locate-button" id="recenterMapBtn">⌖</button>
-      </section>
-
-      <section class="protection-panel">
-        <div class="protection-heading">
-          <div>
-            <p class="section-kicker">Состояние охраны</p>
-            <h2 id="protectionStatusTitle">
-              <span class="status-dot offline" id="statusDot"></span> 
-              <span id="statusText">Охрана отключена</span>
-            </h2>
-          </div>
-          <span class="time-badge" id="parkingTimer">00:00</span>
-        </div>
-        
-        <div class="stats-row">
-          <div><span>Радиус</span><strong id="displayRadius">300 м</strong></div>
-          <div><span>Сигналов</span><strong id="nearbySignalsCount">0 рядом</strong></div>
-          <div><span>Карма</span><strong id="displayKarma">100 ★</strong></div>
-        </div>
-
-        <button class="primary-button" id="parkingButton">Припарковать авто</button>
-        <button class="secondary-button danger" id="reportButton">🚨 Здесь эвакуатор!</button>
-      </section>
-    </div>
-
-    <!-- ВКЛАДКА 2: СИГНАЛЫ -->
-    <div id="tab-signals" class="tab-content">
-      <section class="section-container">
-        <h2>⚠️ Активные сигналы</h2>
-        <p class="section-kicker" style="margin-top: 4px;">Эвакуаторы поблизости</p>
-        <div id="signalsList" style="margin-top: 16px;">
-          <div style="color: var(--text-muted); font-size: 14px;">Поблизости эвакуаторов не обнаружено 👍</div>
-        </div>
-      </section>
-    </div>
-
-    <!-- ВКЛАДКА 3: РЕЙТИНГ -->
-    <div id="tab-rating" class="tab-content">
-      <section class="section-container">
-        <h2>📈 ТОП репортеров</h2>
-        <div id="ratingList" style="margin-top: 16px;">
-          <div style="color: var(--text-muted); font-size: 14px;">Загрузка рейтинга...</div>
-        </div>
-      </section>
-    </div>
-
-    <!-- ВКЛАДКА 4: ПРОФИЛЬ -->
-    <div id="tab-profile" class="tab-content">
-      <section class="profile-card">
-        <div class="profile-header">
-          <div class="profile-avatar" id="profileBigAvatar">U</div>
-          <div>
-            <h3 id="profileUsername">@username</h3>
-            <p class="profile-id">ID: <code id="profileTelegramId">00000000</code></p>
-          </div>
-        </div>
-
-        <div class="sub-status-box">
-          <div>
-            <div style="font-size: 12px; color: var(--text-muted);">Подписка</div>
-            <strong id="subStatusText" style="font-size: 14px;">Тестовый период</strong>
-          </div>
-          <button class="buy-sub-btn" id="openSubModalBtn">Купить</button>
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-item">
-            <span>Ранг</span>
-            <strong id="statRank">🌱 Новичок</strong>
-          </div>
-          <div class="stat-item">
-            <span>Сигналов</span>
-            <strong id="statTotalSignals">0</strong>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <!-- НИЖНЯЯ НАВИГАЦИЯ -->
-    <nav class="bottom-nav">
-      <button class="nav-item is-active" data-tab="home"><span>⌂</span>Главная</button>
-      <button class="nav-item" data-tab="signals"><span>🚨</span>Сигналы</button>
-      <button class="nav-item" data-tab="rating"><span>🏆</span>Рейтинг</button>
-      <button class="nav-item" data-tab="profile"><span>👤</span>Профиль</button>
-    </nav>
-  </main>
-
-  <!-- МОДАЛЬНОЕ ОКНО ПОДПИСКИ -->
-  <div class="modal-overlay" id="subModal">
-    <div class="modal-content">
-      <button class="modal-close" id="closeSubModal">&times;</button>
-      <h3 style="margin-bottom: 16px;">💎 Выберите тариф</h3>
-      <button class="primary-button" id="contactSupportSubBtn">Связаться с поддержкой</button>
+      <div class="action-buttons">
+        <button id="btn-park-toggle" class="btn btn-park">
+          <span>🚗</span> <span id="park-btn-text">Припарковать</span>
+        </button>
+        <button id="btn-report-tow" class="btn btn-tow">
+          <span>🚨</span> Эвакуатор!
+        </button>
+      </div>
     </div>
   </div>
 
-  <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
+  <!-- ВКЛАДКА 2: ПРОФИЛЬ -->
+  <div id="page-profile" class="page">
+    <h2 style="margin-bottom: 16px;">Профиль</h2>
+    <div class="profile-card">
+      <p><b>ID:</b> <span id="user-id">Загрузка...</span></p>
+      <p style="margin-top: 8px;"><b>Подписка:</b> <span id="sub-status">Проверка...</span></p>
+      <p style="margin-top: 8px;"><b>Карма:</b> <span id="trust-score">100</span> ⭐</p>
+    </div>
 
-    // Заполнение данных из Telegram
-    const user = tg.initDataUnsafe?.user;
-    if (user) {
-      document.getElementById('profileUsername').innerText = '@' + (user.username || user.first_name);
-      document.getElementById('profileTelegramId').innerText = user.id;
-      document.getElementById('avatarLetter').innerText = user.first_name.charAt(0).toUpperCase();
-      document.getElementById('profileBigAvatar').innerText = user.first_name.charAt(0).toUpperCase();
+    <div class="profile-card">
+      <h3>Статистика</h3>
+      <p style="margin-top: 8px;">Всего сигналов: <b id="total-signals">0</b></p>
+      <p style="margin-top: 4px;">Подтверждено: <b id="confirmed-signals">0</b></p>
+    </div>
+  </div>
+
+  <!-- НИЖНЯЯ НАВИГАЦИЯ -->
+  <nav class="nav-bar">
+    <div class="nav-item active" onclick="switchTab('map')">
+      <span class="nav-icon">🗺️</span>
+      <span>Карта</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('profile')">
+      <span class="nav-icon">👤</span>
+      <span>Профиль</span>
+    </div>
+  </nav>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // Инициализация Telegram WebApp
+    const tg = window.Telegram.WebApp;
+    tg.expand(); // Раскрываем WebApp на весь экран
+
+    let isParked = false;
+    let userLocation = [55.751244, 37.618423]; // Москва по умолчанию
+    let map, carMarker, radiusCircle;
+
+    // Инициализация карты
+    function initMap() {
+      map = L.map('map', { zoomControl: false }).setView(userLocation, 15);
+
+      // Темная тема для Leaflet (CartoDB Dark Matter)
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+
+      // Определение геопозиции пользователя через браузер
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          userLocation = [pos.coords.latitude, pos.coords.longitude];
+          map.setView(userLocation, 16);
+        });
+      }
     }
 
-    // Переключение вкладок
-    document.querySelectorAll('.nav-item, [data-tab="profile"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const tabName = btn.dataset.tab;
-        if (!tabName) return;
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('is-active'));
-        
-        document.getElementById('tab-' + tabName).classList.add('active');
-        const navBtn = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
-        if (navBtn) navBtn.classList.add('is-active');
+    // Переключение парковки
+    document.getElementById('btn-park-toggle').addEventListener('click', () => {
+      isParked = !isParked;
+      const btn = document.getElementById('btn-park-toggle');
+      const btnText = document.getElementById('park-btn-text');
+      const statusText = document.getElementById('park-status-text');
+
+      if (isParked) {
+        btn.classList.add('active');
+        btnText.innerText = 'Снять с охраны';
+        statusText.innerText = '🟢 Под охраной';
+        statusText.style.color = 'var(--success-color)';
+
+        // Ставим метку авто и радиус на карту
+        carMarker = L.marker(userLocation).addTo(map).bindPopup("Ваш автомобиль").openPopup();
+        radiusCircle = L.circle(userLocation, {
+          color: '#4caf50',
+          fillColor: '#4caf50',
+          fillOpacity: 0.15,
+          radius: 300
+        }).addTo(map);
+
+        tg.HapticFeedback.notificationOccurred('success'); // Виброотклик
+      } else {
+        btn.classList.remove('active');
+        btnText.innerText = 'Припарковать';
+        statusText.innerText = '🔴 Не припаркован';
+        statusText.style.color = 'var(--danger-color)';
+
+        if (carMarker) map.removeLayer(carMarker);
+        if (radiusCircle) map.removeLayer(radiusCircle);
+
+        tg.HapticFeedback.notificationOccurred('warning');
+      }
+    });
+
+    // Отметка эвакуатора
+    document.getElementById('btn-report-tow').addEventListener('click', () => {
+      tg.HapticFeedback.impactOccurred('heavy');
+      tg.showPopup({
+        title: '🚨 Отметить эвакуатор',
+        message: 'Вы действительно видите эвакуатор поблизости?',
+        buttons: [
+          {id: 'yes', type: 'destructive', text: 'Да, отметить'},
+          {id: 'no', type: 'cancel', text: 'Отмена'}
+        ]
+      }, (buttonId) => {
+        if (buttonId === 'yes') {
+          // Здесь будет запрос к API
+          L.marker(userLocation, {
+            icon: L.divIcon({className: 'tow-icon', html: '🚨', iconSize: [30, 30]})
+          }).addTo(map);
+          tg.showAlert('Сигнал отправлен водителям неподалеку!');
+        }
       });
     });
 
-    // Инициализация карты Leaflet
-    const map = L.map('map', { zoomControl: false }).setView([55.75, 37.61], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(map);
+    // Навигация по вкладкам
+    function switchTab(tab) {
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      if (tab === 'map') {
+        document.getElementById('page-map').style.display = 'flex';
+        document.getElementById('page-profile').classList.remove('active');
+        event.currentTarget.classList.add('active');
+        setTimeout(() => map.invalidateSize(), 200); // Обновление размера карты
+      } else if (tab === 'profile') {
+        document.getElementById('page-map').style.display = 'none';
+        document.getElementById('page-profile').classList.add('active');
+        event.currentTarget.classList.add('active');
+        
+        // Заполняем данные из Telegram
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+          document.getElementById('user-id').innerText = tg.initDataUnsafe.user.id;
+        }
+      }
+    }
 
-    // Модальное окно подписки
-    const subModal = document.getElementById('subModal');
-    document.getElementById('openSubModalBtn').addEventListener('click', () => subModal.classList.add('open'));
-    document.getElementById('closeSubModal').addEventListener('click', () => subModal.classList.remove('open'));
+    // Запуск при загрузке
+    window.onload = () => {
+      initMap();
+    };
   </script>
 </body>
 </html>
