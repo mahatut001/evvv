@@ -422,6 +422,10 @@
                             <span id="profileUsername">-</span>
                         </div>
                         <div class="status-row" style="color: #333; margin-bottom: 8px;">
+                            <span>Ранг:</span>
+                            <span id="profileRank">-</span>
+                        </div>
+                        <div class="status-row" style="color: #333; margin-bottom: 8px;">
                             <span>Карма:</span>
                             <span id="profileKarma">-</span>
                         </div>
@@ -478,8 +482,16 @@
         class CarGuardingApp {
             constructor() {
                 this.tg = window.Telegram?.WebApp || {};
-                // УКАЖИТЕ АДРЕС БЭКЕНД-СЕРВЕРА (например, https://api.yourdomain.com или http://localhost:8000)
-                this.apiUrl = 'http://localhost:8000';  
+                
+                // Динамическое определение URL бэкенда
+                if (window.location.origin.startsWith('http://localhost') || window.location.origin.startsWith('http://127.0.0.1')) {
+                    this.apiUrl = 'http://localhost:8000';
+                } else if (window.location.origin && window.location.origin !== 'null' && !window.location.origin.includes('file://')) {
+                    this.apiUrl = window.location.origin;
+                } else {
+                    this.apiUrl = 'http://localhost:8000';
+                }
+
                 this.initData = this.tg.initData || '';
                 this.userId = null;
                 this.userData = null;
@@ -744,22 +756,16 @@
 
                 const user = this.userData?.user || {};
                 document.getElementById('profileTgId').textContent = user.telegram_id || '-';
-                document.getElementById('profileUsername').textContent = '@' + (user.username || 'unknown');
+                document.getElementById('profileUsername').textContent = user.username ? ('@' + user.username) : 'не указан';
+                document.getElementById('profileRank').textContent = user.rank || '🌱 Новичок';
                 document.getElementById('profileKarma').textContent = user.trust_score || 0;
                 document.getElementById('profileSignals').textContent = user.total_signals_sent || 0;
                 document.getElementById('profileConfirmed').textContent = user.confirmed_signals || 0;
                 
-                const accuracy = !user.total_signals_sent 
-                    ? 'Нет сигналов'
-                    : Math.round((user.confirmed_signals / user.total_signals_sent) * 100) + '%';
+                const accuracy = user.accuracy !== undefined ? (user.accuracy + '%') : '100%';
                 document.getElementById('profileAccuracy').textContent = accuracy;
 
-                const subExpires = user.sub_expires ? new Date(user.sub_expires) : null;
-                const now = new Date();
-                const subInfo = user.is_subscribed && subExpires && subExpires > now
-                    ? `✅ Активна до ${subExpires.toLocaleDateString('ru-RU')}`
-                    : '❌ Неактивна';
-                
+                const subInfo = user.sub_status_label || '❌ Неактивна';
                 document.getElementById('subscriptionInfo').textContent = subInfo;
             }
 
