@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#101b2d">
+  <title>CarGuarding Mini App</title>
+  
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+  <!-- Leaflet CSS & JS (для интерактивной карты) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Стили приложения -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app-shell">
+    
+    <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">CarGuarding</p>
+        <h1 id="headerTitle">Машина под защитой</h1>
+      </div>
+      <button class="avatar-button" id="userAvatarBtn" aria-label="Открыть профиль" data-tab="profile">
+        <span id="avatarLetter">U</span>
+      </button>
+    </header>
+
+    <!-- ВКЛАДКА 1: ГЛАВНАЯ (КАРТА И УПРАВЛЕНИЕ ПАРКОВКОЙ) -->
+    <div id="tab-home" class="tab-content active">
+      <section class="map-card" aria-label="Карта">
+        <div id="map"></div>
+        <button class="locate-button" id="recenterMapBtn" aria-label="Показать моё местоположение">⌖</button>
+      </section>
+
+      <section class="protection-panel">
+        <div class="protection-heading">
+          <div>
+            <p class="section-kicker">Состояние охраны</p>
+            <h2 id="protectionStatusTitle">
+              <span class="status-dot offline" id="statusDot"></span> 
+              <span id="statusText">Охрана отключена</span>
+            </h2>
+          </div>
+          <span class="time-badge" id="parkingTimer">00:00</span>
+        </div>
+        
+        <div class="stats-row">
+          <div><span>Радиус</span><strong id="displayRadius">300 м</strong></div>
+          <div><span>Сигналов</span><strong id="nearbySignalsCount">0 рядом</strong></div>
+          <div><span>Карма</span><strong id="displayKarma">100 ★</strong></div>
+        </div>
+
+        <button class="primary-button" id="parkingButton">Припарковать авто</button>
+        <button class="secondary-button danger" id="reportButton">🚨 Здесь эвакуатор!</button>
+      </section>
+    </div>
+
+    <!-- ВКЛАДКА 2: СИГНАЛЫ (СПИСОК ЭВАКУАТОРОВ РЯДОМ) -->
+    <div id="tab-signals" class="tab-content">
+      <section class="section-container">
+        <h2>⚠️ Активные сигналы рядом</h2>
+        <p class="section-subtitle">Подтвердите или опровергните наличие эвакуаторов</p>
+        
+        <div id="signalsList" class="signals-list">
+          <!-- Динамически загружается из backend -->
+          <div class="empty-state">Поблизости эвакуаторов не обнаружено 👍</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ВКЛАДКА 3: РЕЙТИНГ -->
+    <div id="tab-rating" class="tab-content">
+      <section class="section-container">
+        <h2>📈 ТОП-10 Самых честных репортеров</h2>
+        <div id="ratingList" class="rating-list">
+          <!-- Загружается из таблицы reporter_stats -->
+          <div class="loading-spinner">Загрузка рейтинга...</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ВКЛАДКА 4: ПРОФИЛЬ И НАСТРОЙКИ -->
+    <div id="tab-profile" class="tab-content">
+      <section class="profile-card">
+        <div class="profile-header">
+          <div class="profile-avatar" id="profileBigAvatar">U</div>
+          <div>
+            <h3 id="profileUsername">@username</h3>
+            <p class="profile-id">ID: <code id="profileTelegramId">00000000</code></p>
+          </div>
+        </div>
+
+        <div class="sub-status-box" id="subStatusBox">
+          <div class="sub-info">
+            <span>Статус подписки:</span>
+            <strong id="subStatusText">Тестовый период (3 ч)</strong>
+          </div>
+          <button class="buy-sub-btn" id="openSubModalBtn">Купить подписку</button>
+        </div>
+
+        <!-- Прогресс бонуса за 10 сигналов -->
+        <div class="bonus-box">
+          <div class="bonus-title">
+            <span>🎁 Бонус за 10 эвакуаторов (+14 дней)</span>
+            <strong id="bonusProgressText">0/10</strong>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="bonusProgressBar" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Статистика -->
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span>Ранг</span>
+            <strong id="statRank">🌱 Новичок</strong>
+          </div>
+          <div class="stat-item">
+            <span>Всего сигналов</span>
+            <strong id="statTotalSignals">0</strong>
+          </div>
+          <div class="stat-item">
+            <span>Подтверждено</span>
+            <strong id="statConfirmedSignals">0</strong>
+          </div>
+          <div class="stat-item">
+            <span>Точность</span>
+            <strong id="statAccuracy">100%</strong>
+          </div>
+        </div>
+
+        <!-- Настройки -->
+        <div class="settings-group">
+          <h4>⚙️ Настройки</h4>
+          
+          <div class="setting-item">
+            <label for="radiusSelect">Радиус уведомлений:</label>
+            <select id="radiusSelect" class="custom-select">
+              <option value="50">50 метров</option>
+              <option value="150">150 метров</option>
+              <option value="300" selected>300 метров</option>
+              <option value="500">500 метров</option>
+            </select>
+          </div>
+
+          <div class="setting-item flex-between">
+            <span>🤝 Доверенные контакты</span>
+            <button class="small-btn" id="openContactsModalBtn">Управление</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- НИЖНЯЯ НАВИГАЦИЯ -->
+    <nav class="bottom-nav" aria-label="Навигация">
+      <button class="nav-item is-active" data-tab="home"><span>⌂</span>Главная</button>
+      <button class="nav-item" data-tab="signals"><span>🚨</span>Сигналы</button>
+      <button class="nav-item" data-tab="rating"><span>🏆</span>Рейтинг</button>
+      <button class="nav-item" data-tab="profile"><span>👤</span>Профиль</button>
+    </nav>
+  </main>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ОТМЕТИТЬ ЭВАКУАТОР -->
+  <div class="modal-overlay" id="reportModal">
+    <div class="modal-content">
+      <button class="modal-close" id="closeReportModal">&times;</button>
+      <h3>🚨 Сообщить об эвакуаторе</h3>
+      <p>Сделайте фото эвакуатора и проверьте вашу геолокацию на карте.</p>
+
+      <form id="reportForm">
+        <div class="form-group">
+          <label>Фотография эвакуатора:</label>
+          <input type="file" id="towPhotoInput" accept="image/*" capture="environment" required>
+        </div>
+
+        <div class="modal-actions">
+          <button type="submit" class="primary-button danger">Отправить сигнал</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: КУПИТЬ ПОДПИСКУ -->
+  <div class="modal-overlay" id="subModal">
+    <div class="modal-content">
+      <button class="modal-close" id="closeSubModal">&times;</button>
+      <h3>💎 Выберите тариф подписки</h3>
+      
+      <div class="plans-list">
+        <div class="plan-card" data-plan="1">
+          <div class="plan-name">1 месяц</div>
+          <div class="plan-price">499 руб.</div>
+        </div>
+        <div class="plan-card popular" data-plan="3">
+          <div class="plan-badge">Выгода 13%</div>
+          <div class="plan-name">3 месяца</div>
+          <div class="plan-price">1299 руб.</div>
+        </div>
+        <div class="plan-card" data-plan="6">
+          <div class="plan-badge">Выгода 17%</div>
+          <div class="plan-name">6 месяцев</div>
+          <div class="plan-price">2499 руб.</div>
+        </div>
+        <div class="plan-card" data-plan="12">
+          <div class="plan-badge">Выгода 25%</div>
+          <div class="plan-name">12 месяцев</div>
+          <div class="plan-price">4499 руб.</div>
+        </div>
+      </div>
+
+      <button class="primary-button" id="contactSupportSubBtn">💬 Связаться для оплаты</button>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ДОВЕРЕННЫЕ КОНТАКТЫ -->
+  <div class="modal-overlay" id="contactsModal">
+    <div class="modal-content">
+      <button class="modal-close" id="closeContactsModal">&times;</button>
+      <h3>🤝 Доверенные контакты</h3>
+      <p>Они будут получать уведомления, если рядом с вашей машиной появится эвакуатор.</p>
+
+      <div class="form-group flex-row">
+        <input type="number" id="newContactIdInput" placeholder="Telegram ID друга">
+        <button class="primary-button" id="addContactBtn">Добавить</button>
+      </div>
+
+      <ul id="trustedContactsList" class="contacts-list">
+        <!-- Загрузка списка -->
+      </ul>
+    </div>
+  </div>
+
+  <!-- УВЕДОМЛЕНИЯ (TOAST) -->
+  <div class="toast" id="toast" role="status"></div>
+
+  <!-- СКРИПТ ПРИЛОЖЕНИЯ -->
+  <script src="app.js"></script>
+</body>
+</html>
