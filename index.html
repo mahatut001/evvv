@@ -542,6 +542,7 @@
                 this.isParked = false;
                 this.parkingStartTime = null;
                 this.parkingUpdateInterval = null;
+                this.devMode = !this.initData; // DEV MODE если initData пуста
 
                 this.init();
             }
@@ -558,9 +559,17 @@
                     if (userStr) {
                         const user = JSON.parse(userStr);
                         this.userId = user.id;
+                    } else if (this.devMode) {
+                        // DEV MODE: используем фейковый ID из URL или просто 123456789
+                        const urlParams = new URLSearchParams(window.location.search);
+                        this.userId = parseInt(urlParams.get('user_id') || '123456789');
+                        console.log('🔧 DEV MODE: используется ID', this.userId);
                     }
                 } catch (e) {
                     console.error('Error parsing user:', e);
+                    if (this.devMode) {
+                        this.userId = 123456789;
+                    }
                 }
 
                 this.setupEventListeners();
@@ -624,10 +633,16 @@
                 const options = {
                     method,
                     headers: {
-                        'X-Telegram-Init-Data': this.initData,
                         'Content-Type': 'application/json',
                     }
                 };
+
+                // В DEV MODE отправляем X-Telegram-Id вместо initData
+                if (this.devMode) {
+                    options.headers['X-Telegram-Id'] = String(this.userId);
+                } else {
+                    options.headers['X-Telegram-Init-Data'] = this.initData;
+                }
 
                 if (body) {
                     options.body = JSON.stringify(body);
