@@ -1,345 +1,872 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>CarGuarding Mini App</title>
-  
-  <!-- Telegram WebApp SDK -->
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  
-  <!-- Leaflet CSS (Карта) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  
-  <style>
-    :root {
-      --bg-color: var(--tg-theme-bg-color, #17212b);
-      --text-color: var(--tg-theme-text-color, #ffffff);
-      --hint-color: var(--tg-theme-hint-color, #708499);
-      --button-color: var(--tg-theme-button-color, #5288c1);
-      --button-text-color: var(--tg-theme-button-text-color, #ffffff);
-      --secondary-bg: var(--tg-theme-secondary-bg-color, #232e3c);
-      --danger-color: #e53935;
-      --success-color: #4caf50;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CarGuarding Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      -webkit-tap-highlight-color: transparent;
-    }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f0f0f0;
+            overflow-x: hidden;
+        }
 
-    body {
-      background-color: var(--bg-color);
-      color: var(--text-color);
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-    }
+        .app-container {
+            max-width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+        }
 
-    /* Контейнер карты */
-    #map {
-      flex: 1;
-      width: 100%;
-      z-index: 1;
-    }
+        .header {
+            background: linear-gradient(135deg, #0088cc 0%, #0066a1 100%);
+            color: white;
+            padding: 16px;
+            text-align: center;
+            border-bottom: 2px solid #0066a1;
+        }
 
-    /* Нижняя панель управления */
-    .bottom-sheet {
-      background-color: var(--secondary-bg);
-      border-top-left-radius: 16px;
-      border-top-right-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
 
-    .status-card {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(255,255,255,0.05);
-      padding: 12px 16px;
-      border-radius: 12px;
-    }
+        .header p {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
 
-    .status-info {
-      display: flex;
-      flex-direction: column;
-    }
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
 
-    .status-title {
-      font-size: 12px;
-      color: var(--hint-color);
-    }
+        .screen {
+            display: none;
+            animation: fadeIn 0.3s ease-in;
+        }
 
-    .status-value {
-      font-size: 16px;
-      font-weight: bold;
-    }
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+        }
 
-    /* Кнопки действий */
-    .action-buttons {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
 
-    .btn {
-      border: none;
-      padding: 14px;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: opacity 0.2s;
-    }
+        /* Главное меню */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
 
-    .btn:active {
-      opacity: 0.8;
-    }
+        .menu-item {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
 
-    .btn-park {
-      background-color: var(--success-color);
-      color: #fff;
-    }
+        .menu-item:active {
+            background: #f0f0f0;
+            transform: scale(0.98);
+        }
 
-    .btn-park.active {
-      background-color: var(--danger-color);
-    }
+        .menu-item.large {
+            grid-column: 1 / -1;
+            padding: 24px 16px;
+        }
 
-    .btn-tow {
-      background-color: var(--danger-color);
-      color: #fff;
-    }
+        .menu-item-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
 
-    /* Переключатель вкладок внизу */
-    .nav-bar {
-      display: flex;
-      justify-content: space-around;
-      background-color: var(--bg-color);
-      padding: 10px 0;
-      border-top: 1px solid rgba(255,255,255,0.05);
-    }
+        .menu-item-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
 
-    .nav-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      color: var(--hint-color);
-      font-size: 10px;
-      cursor: pointer;
-      text-decoration: none;
-    }
+        .status-card {
+            background: linear-gradient(135deg, #0088cc 0%, #00a8e8 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
 
-    .nav-item.active {
-      color: var(--button-color);
-    }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
 
-    .nav-icon {
-      font-size: 20px;
-    }
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
 
-    /* Экраны для других разделов */
-    .page {
-      display: none;
-      flex: 1;
-      padding: 20px;
-      overflow-y: auto;
-    }
+        .status-label {
+            font-weight: 500;
+            opacity: 0.9;
+        }
 
-    .page.active {
-      display: block;
-    }
+        .status-value {
+            font-weight: 600;
+        }
 
-    .profile-card {
-      background: var(--secondary-bg);
-      padding: 16px;
-      border-radius: 12px;
-      margin-bottom: 12px;
-    }
-  </style>
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #0088cc;
+            color: white;
+        }
+
+        .btn-primary:active {
+            background: #0066a1;
+            transform: scale(0.95);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:active {
+            background: #d0d0d0;
+            transform: scale(0.95);
+        }
+
+        .btn-danger {
+            background: #ff4444;
+            color: white;
+        }
+
+        .btn-danger:active {
+            background: #cc0000;
+            transform: scale(0.95);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 12px 0;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .card-content {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .rating-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .rating-item:last-child {
+            border-bottom: none;
+        }
+
+        .rating-username {
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+
+        .rating-score {
+            font-weight: 600;
+            color: #0088cc;
+            min-width: 40px;
+            text-align: right;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f0f0f0;
+            border-top: 3px solid #0088cc;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #c62828;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #2e7d32;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .footer {
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .parking-timer {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            margin-top: 4px;
+        }
+
+        .radius-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin: 12px 0;
+        }
+
+        .radius-btn {
+            padding: 12px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-weight: 600;
+            color: #333;
+            transition: all 0.2s;
+        }
+
+        .radius-btn.active {
+            background: #0088cc;
+            color: white;
+            border-color: #0088cc;
+        }
+
+        .radius-btn:active:not(.active) {
+            background: #f0f0f0;
+        }
+
+        .emoji {
+            font-size: 1.2em;
+            margin-right: 4px;
+        }
+
+        .back-btn {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #333;
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            z-index: 1000;
+            text-align: center;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translate(-50%, -60%); opacity: 0; }
+            to { transform: translate(-50%, -50%); opacity: 1; }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
 </head>
 <body>
-
-  <!-- ВКЛАДКА 1: КАРТА И УПРАВЛЕНИЕ -->
-  <div id="page-map" class="page-container" style="display: flex; flex-direction: column; height: 100%;">
-    <div id="map"></div>
-    
-    <div class="bottom-sheet">
-      <div class="status-card">
-        <div class="status-info">
-          <span class="status-title">СТАТУС ОХРАНЫ</span>
-          <span id="park-status-text" class="status-value" style="color: var(--danger-color);">🔴 Не припаркован</span>
+    <div class="app-container">
+        <div class="header">
+            <h1>🚗 CarGuarding</h1>
+            <p>Защита припаркованного авто</p>
         </div>
-        <div class="status-info" style="text-align: right;">
-          <span class="status-title">РАДИУС</span>
-          <span id="radius-val" class="status-value">300м</span>
+
+        <div class="content">
+            <!-- Главное меню -->
+            <div id="mainScreen" class="screen active">
+                <div class="status-card" id="statusCard">
+                    <div class="status-row">
+                        <span class="status-label">🚗 Припарковано:</span>
+                        <span class="status-value" id="parkStatus">-</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">⚠️ Охрана:</span>
+                        <span class="status-value" id="guardStatus">-</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">⭐ Карма:</span>
+                        <span class="status-value" id="karmaStatus">-</span>
+                    </div>
+                    <div class="parking-timer" id="parkingTimer" style="display: none;"></div>
+                </div>
+
+                <div class="menu-grid">
+                    <div class="menu-item large" id="parkBtn">
+                        <div class="menu-item-icon">🅿️</div>
+                        <div class="menu-item-text" id="parkBtnText">Припарковать авто</div>
+                    </div>
+                    <div class="menu-item" id="towBtn">
+                        <div class="menu-item-icon">⚠️</div>
+                        <div class="menu-item-text">Эвакуатор!</div>
+                    </div>
+                    <div class="menu-item" id="profileBtn">
+                        <div class="menu-item-icon">👤</div>
+                        <div class="menu-item-text">Профиль</div>
+                    </div>
+                    <div class="menu-item" id="ratingBtn">
+                        <div class="menu-item-icon">⭐</div>
+                        <div class="menu-item-text">Рейтинг</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Экран парковки -->
+            <div id="parkScreen" class="screen">
+                <button class="back-btn" onclick="app.backToMain()">← Назад</button>
+                <div class="card">
+                    <div class="card-title">Припарковать авто</div>
+                    <div class="card-content">
+                        Нажми кнопку ниже, разреши доступ к геолокации и твой автомобиль будет защищён!
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Радиус уведомлений:</label>
+                    <div class="radius-selector">
+                        <button class="radius-btn" data-radius="50">50м</button>
+                        <button class="radius-btn active" data-radius="300">300м</button>
+                        <button class="radius-btn" data-radius="500">500м</button>
+                        <button class="radius-btn" data-radius="1000">1000м</button>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="getLocationBtn" style="margin-top: 20px;">
+                    📍 Отправить геолокацию
+                </button>
+
+                <div id="parkMessage"></div>
+            </div>
+
+            <!-- Экран эвакуатора -->
+            <div id="towScreen" class="screen">
+                <button class="back-btn" onclick="app.backToMain()">← Назад</button>
+                <div class="card">
+                    <div class="card-title">Отметить эвакуатор</div>
+                    <div class="card-content">
+                        Расскажи другим водителям об эвакуаторе рядом!
+                    </div>
+                </div>
+
+                <button class="btn btn-danger" id="reportTowBtn" style="margin-top: 20px;">
+                    ⚠️ Отправить сигнал
+                </button>
+
+                <div id="towMessage"></div>
+            </div>
+
+            <!-- Экран профиля -->
+            <div id="profileScreen" class="screen">
+                <button class="back-btn" onclick="app.backToMain()">← Назад</button>
+                <div class="card">
+                    <div class="card-title" id="profileTitle">Профиль</div>
+                    <div class="card-content">
+                        <div class="status-row" style="color: #333; margin-bottom: 8px;">
+                            <span>ID Telegram:</span>
+                            <span id="profileTgId">-</span>
+                        </div>
+                        <div class="status-row" style="color: #333; margin-bottom: 8px;">
+                            <span>Юзернейм:</span>
+                            <span id="profileUsername">-</span>
+                        </div>
+                        <div class="status-row" style="color: #333; margin-bottom: 8px;">
+                            <span>Карма:</span>
+                            <span id="profileKarma">-</span>
+                        </div>
+                        <div class="status-row" style="color: #333; margin-bottom: 8px;">
+                            <span>Сигналов отправлено:</span>
+                            <span id="profileSignals">-</span>
+                        </div>
+                        <div class="status-row" style="color: #333; margin-bottom: 8px;">
+                            <span>Подтверждено:</span>
+                            <span id="profileConfirmed">-</span>
+                        </div>
+                        <div class="status-row" style="color: #333;">
+                            <span>Точность:</span>
+                            <span id="profileAccuracy">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Подписка</div>
+                    <div class="card-content" id="subscriptionInfo">-</div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" id="buySubBtn">💳 Купить подписку</button>
+                    <button class="btn btn-secondary" onclick="app.refreshData()">🔄 Обновить</button>
+                </div>
+            </div>
+
+            <!-- Экран рейтинга -->
+            <div id="ratingScreen" class="screen">
+                <button class="back-btn" onclick="app.backToMain()">← Назад</button>
+                <div class="card">
+                    <div class="card-title">Топ репортёров</div>
+                    <div id="ratingList"></div>
+                </div>
+            </div>
+
+            <!-- Загрузка -->
+            <div id="loadingScreen" class="screen">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>Загрузка...</span>
+                </div>
+            </div>
         </div>
-      </div>
 
-      <div class="action-buttons">
-        <button id="btn-park-toggle" class="btn btn-park">
-          <span>🚗</span> <span id="park-btn-text">Припарковать</span>
-        </button>
-        <button id="btn-report-tow" class="btn btn-tow">
-          <span>🚨</span> Эвакуатор!
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ВКЛАДКА 2: ПРОФИЛЬ -->
-  <div id="page-profile" class="page">
-    <h2 style="margin-bottom: 16px;">Профиль</h2>
-    <div class="profile-card">
-      <p><b>ID:</b> <span id="user-id">Загрузка...</span></p>
-      <p style="margin-top: 8px;"><b>Подписка:</b> <span id="sub-status">Проверка...</span></p>
-      <p style="margin-top: 8px;"><b>Карма:</b> <span id="trust-score">100</span> ⭐</p>
+        <div class="footer" id="footer">
+            CarGuarding • Версия 1.0 • API: готово ✓
+        </div>
     </div>
 
-    <div class="profile-card">
-      <h3>Статистика</h3>
-      <p style="margin-top: 8px;">Всего сигналов: <b id="total-signals">0</b></p>
-      <p style="margin-top: 4px;">Подтверждено: <b id="confirmed-signals">0</b></p>
-    </div>
-  </div>
+    <script>
+        class CarGuardingApp {
+            constructor() {
+                this.tg = window.Telegram.WebApp;
+                this.apiUrl = 'https://carguarding.ru';  // Измени на свой API URL
+                this.initData = this.tg.initData || '';
+                this.userId = null;
+                this.userData = null;
+                this.selectedRadius = 300;
+                this.isParked = false;
+                this.parkingStartTime = null;
+                this.parkingUpdateInterval = null;
 
-  <!-- НИЖНЯЯ НАВИГАЦИЯ -->
-  <nav class="nav-bar">
-    <div class="nav-item active" onclick="switchTab('map')">
-      <span class="nav-icon">🗺️</span>
-      <span>Карта</span>
-    </div>
-    <div class="nav-item" onclick="switchTab('profile')">
-      <span class="nav-icon">👤</span>
-      <span>Профиль</span>
-    </div>
-  </nav>
+                this.init();
+            }
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            init() {
+                this.tg.ready();
+                this.tg.setHeaderColor('#0088cc');
+                this.tg.expand();
 
-  <script>
-    // Инициализация Telegram WebApp
-    const tg = window.Telegram.WebApp;
-    tg.expand(); // Раскрываем WebApp на весь экран
+                // Получаем ID пользователя из initData
+                try {
+                    const params = new URLSearchParams(this.initData);
+                    const userStr = params.get('user');
+                    if (userStr) {
+                        const user = JSON.parse(userStr);
+                        this.userId = user.id;
+                    }
+                } catch (e) {
+                    console.error('Error parsing user:', e);
+                }
 
-    let isParked = false;
-    let userLocation = [55.751244, 37.618423]; // Москва по умолчанию
-    let map, carMarker, radiusCircle;
+                this.setupEventListeners();
+                this.loadData();
+            }
 
-    // Инициализация карты
-    function initMap() {
-      map = L.map('map', { zoomControl: false }).setView(userLocation, 15);
+            setupEventListeners() {
+                // Главное меню
+                document.getElementById('parkBtn').addEventListener('click', () => this.showParkScreen());
+                document.getElementById('towBtn').addEventListener('click', () => this.showTowScreen());
+                document.getElementById('profileBtn').addEventListener('click', () => this.showProfileScreen());
+                document.getElementById('ratingBtn').addEventListener('click', () => this.showRatingScreen());
 
-      // Темная тема для Leaflet (CartoDB Dark Matter)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
+                // Парковка
+                document.getElementById('getLocationBtn').addEventListener('click', () => this.getLocation());
 
-      // Определение геопозиции пользователя через браузер
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((pos) => {
-          userLocation = [pos.coords.latitude, pos.coords.longitude];
-          map.setView(userLocation, 16);
-        });
-      }
-    }
+                // Радиус
+                document.querySelectorAll('.radius-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.radius-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.selectedRadius = parseInt(e.target.dataset.radius);
+                    });
+                });
 
-    // Переключение парковки
-    document.getElementById('btn-park-toggle').addEventListener('click', () => {
-      isParked = !isParked;
-      const btn = document.getElementById('btn-park-toggle');
-      const btnText = document.getElementById('park-btn-text');
-      const statusText = document.getElementById('park-status-text');
+                // Эвакуатор
+                document.getElementById('reportTowBtn').addEventListener('click', () => this.reportTow());
 
-      if (isParked) {
-        btn.classList.add('active');
-        btnText.innerText = 'Снять с охраны';
-        statusText.innerText = '🟢 Под охраной';
-        statusText.style.color = 'var(--success-color)';
+                // Профиль
+                document.getElementById('buySubBtn').addEventListener('click', () => {
+                    this.tg.openTelegramLink('https://t.me/car_guard');
+                });
+            }
 
-        // Ставим метку авто и радиус на карту
-        carMarker = L.marker(userLocation).addTo(map).bindPopup("Ваш автомобиль").openPopup();
-        radiusCircle = L.circle(userLocation, {
-          color: '#4caf50',
-          fillColor: '#4caf50',
-          fillOpacity: 0.15,
-          radius: 300
-        }).addTo(map);
+            async loadData() {
+                try {
+                    this.showScreen('loadingScreen');
+                    const response = await this.apiCall('/api/me', 'GET');
+                    this.userData = response;
+                    this.isParked = !!response.parking;
+                    
+                    if (this.isParked) {
+                        this.parkingStartTime = new Date(response.parking.started_at);
+                        this.startParkingTimer();
+                    }
+                    
+                    this.updateStatusCard();
+                    this.showScreen('mainScreen');
+                } catch (error) {
+                    console.error('Load error:', error);
+                    this.showScreen('mainScreen');
+                    this.showError('Ошибка загрузки данных: ' + error.message);
+                }
+            }
 
-        tg.HapticFeedback.notificationOccurred('success'); // Виброотклик
-      } else {
-        btn.classList.remove('active');
-        btnText.innerText = 'Припарковать';
-        statusText.innerText = '🔴 Не припаркован';
-        statusText.style.color = 'var(--danger-color)';
+            async apiCall(endpoint, method = 'GET', body = null) {
+                const options = {
+                    method,
+                    headers: {
+                        'X-Telegram-Init-Data': this.initData,
+                        'Content-Type': 'application/json',
+                    }
+                };
 
-        if (carMarker) map.removeLayer(carMarker);
-        if (radiusCircle) map.removeLayer(radiusCircle);
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
 
-        tg.HapticFeedback.notificationOccurred('warning');
-      }
-    });
+                const response = await fetch(this.apiUrl + endpoint, options);
+                
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.detail || `HTTP ${response.status}`);
+                }
 
-    // Отметка эвакуатора
-    document.getElementById('btn-report-tow').addEventListener('click', () => {
-      tg.HapticFeedback.impactOccurred('heavy');
-      tg.showPopup({
-        title: '🚨 Отметить эвакуатор',
-        message: 'Вы действительно видите эвакуатор поблизости?',
-        buttons: [
-          {id: 'yes', type: 'destructive', text: 'Да, отметить'},
-          {id: 'no', type: 'cancel', text: 'Отмена'}
-        ]
-      }, (buttonId) => {
-        if (buttonId === 'yes') {
-          // Здесь будет запрос к API
-          L.marker(userLocation, {
-            icon: L.divIcon({className: 'tow-icon', html: '🚨', iconSize: [30, 30]})
-          }).addTo(map);
-          tg.showAlert('Сигнал отправлен водителям неподалеку!');
+                return response.json();
+            }
+
+            updateStatusCard() {
+                if (!this.userData) return;
+
+                const parkStatus = this.isParked ? '✅ ДА' : '❌ НЕТ';
+                const guardStatus = this.isParked ? '🟢 ВКЛ' : '🔴 ВЫКЛ';
+                const karma = this.userData.user.trust_score || 100;
+
+                document.getElementById('parkStatus').textContent = parkStatus;
+                document.getElementById('guardStatus').textContent = guardStatus + ` (${this.userData.user.notification_radius}м)`;
+                document.getElementById('karmaStatus').textContent = karma;
+
+                document.getElementById('parkBtnText').textContent = this.isParked 
+                    ? '🚗 Окончить парковку' 
+                    : '🅿️ Припарковать авто';
+            }
+
+            startParkingTimer() {
+                if (this.parkingUpdateInterval) clearInterval(this.parkingUpdateInterval);
+                
+                const updateTimer = () => {
+                    if (!this.isParked || !this.parkingStartTime) return;
+                    
+                    const elapsed = Math.floor((Date.now() - this.parkingStartTime.getTime()) / 1000);
+                    const hours = Math.floor(elapsed / 3600);
+                    const minutes = Math.floor((elapsed % 3600) / 60);
+                    
+                    const timerEl = document.getElementById('parkingTimer');
+                    timerEl.textContent = `Припаркован ${hours}ч ${minutes}м`;
+                    timerEl.style.display = 'block';
+                };
+
+                updateTimer();
+                this.parkingUpdateInterval = setInterval(updateTimer, 30000); // Обновляем каждые 30 сек
+            }
+
+            async getLocation() {
+                const btn = document.getElementById('getLocationBtn');
+                btn.disabled = true;
+                btn.textContent = '📍 Определяю локацию...';
+
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: true,
+                            timeout: 10000
+                        });
+                    });
+
+                    const { latitude, longitude } = position.coords;
+                    
+                    await this.apiCall('/api/parking', 'POST', {
+                        latitude,
+                        longitude,
+                        active: true
+                    });
+
+                    this.isParked = true;
+                    this.parkingStartTime = new Date();
+                    this.startParkingTimer();
+                    this.updateStatusCard();
+
+                    this.showSuccess('✅ Авто припаркован!');
+                    setTimeout(() => this.backToMain(), 1500);
+
+                } catch (error) {
+                    console.error('Location error:', error);
+                    this.showError('Ошибка: ' + error.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = '📍 Отправить геолокацию';
+                }
+            }
+
+            async endParking() {
+                try {
+                    await this.apiCall('/api/parking', 'POST', {
+                        latitude: this.userData?.parking?.latitude || 0,
+                        longitude: this.userData?.parking?.longitude || 0,
+                        active: false
+                    });
+
+                    this.isParked = false;
+                    if (this.parkingUpdateInterval) clearInterval(this.parkingUpdateInterval);
+                    this.updateStatusCard();
+
+                    this.showSuccess('✅ Парковка завершена!');
+                    setTimeout(() => this.backToMain(), 1500);
+
+                } catch (error) {
+                    this.showError('Ошибка: ' + error.message);
+                }
+            }
+
+            async reportTow() {
+                const btn = document.getElementById('reportTowBtn');
+                btn.disabled = true;
+                btn.textContent = '⚠️ Отправляю сигнал...';
+
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: true,
+                            timeout: 10000
+                        });
+                    });
+
+                    const { latitude, longitude } = position.coords;
+                    
+                    const result = await this.apiCall('/api/tow', 'POST', {
+                        latitude,
+                        longitude
+                    });
+
+                    this.showSuccess(`✅ Сигнал отправлен!\nУведомлено ${result.notified} водителей`);
+                    setTimeout(() => this.backToMain(), 2000);
+
+                } catch (error) {
+                    console.error('Tow error:', error);
+                    this.showError('Ошибка: ' + error.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = '⚠️ Отправить сигнал';
+                }
+            }
+
+            async showProfileScreen() {
+                this.showScreen('profileScreen');
+                
+                if (!this.userData) {
+                    await this.loadData();
+                }
+
+                const user = this.userData.user;
+                document.getElementById('profileTgId').textContent = user.telegram_id;
+                document.getElementById('profileUsername').textContent = '@' + (user.username || 'unknown');
+                document.getElementById('profileKarma').textContent = user.trust_score;
+                document.getElementById('profileSignals').textContent = user.total_signals_sent;
+                document.getElementById('profileConfirmed').textContent = user.confirmed_signals;
+                document.getElementById('profileAccuracy').textContent = user.confirmed_signals === 0 
+                    ? '0%' 
+                    : Math.round((user.confirmed_signals / user.total_signals_sent) * 100) + '%';
+
+                const subExpires = user.sub_expires ? new Date(user.sub_expires) : null;
+                const now = new Date();
+                const subInfo = user.is_subscribed && subExpires && subExpires > now
+                    ? `✅ Активна до ${subExpires.toLocaleDateString('ru-RU')}`
+                    : '❌ Неактивна (3 часа триала)';
+                
+                document.getElementById('subscriptionInfo').textContent = subInfo;
+            }
+
+            async showRatingScreen() {
+                this.showScreen('ratingScreen');
+                const ratingList = document.getElementById('ratingList');
+                ratingList.innerHTML = '<div class="loading"><div class="spinner"></div> Загрузка...</div>';
+
+                try {
+                    // Для примера показываем текущего пользователя
+                    // В реальности нужен эндпоинт /api/rating
+                    if (this.userData) {
+                        const user = this.userData.user;
+                        ratingList.innerHTML = `
+                            <div class="rating-item">
+                                <span class="rating-username">👤 @${user.username || 'unknown'} (вы)</span>
+                                <span class="rating-score">${user.total_signals_sent}</span>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    ratingList.innerHTML = '<div style="padding: 12px; color: #999;">Ошибка загрузки рейтинга</div>';
+                }
+            }
+
+            showScreen(screenId) {
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById(screenId).classList.add('active');
+            }
+
+            showParkScreen() {
+                if (this.isParked) {
+                    if (confirm('Завершить парковку?')) {
+                        this.endParking();
+                    }
+                } else {
+                    this.showScreen('parkScreen');
+                }
+            }
+
+            showTowScreen() {
+                this.showScreen('towScreen');
+            }
+
+            backToMain() {
+                this.showScreen('mainScreen');
+                this.loadData();
+            }
+
+            refreshData() {
+                this.loadData();
+            }
+
+            showError(message) {
+                this.showNotification(message, 'error');
+            }
+
+            showSuccess(message) {
+                this.showNotification(message, 'success');
+            }
+
+            showNotification(message, type) {
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}-message`;
+                if (type === 'success') {
+                    notification.style.background = '#2e7d32';
+                } else {
+                    notification.style.background = '#c62828';
+                }
+                notification.textContent = message;
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
         }
-      });
-    });
 
-    // Навигация по вкладкам
-    function switchTab(tab) {
-      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-      if (tab === 'map') {
-        document.getElementById('page-map').style.display = 'flex';
-        document.getElementById('page-profile').classList.remove('active');
-        event.currentTarget.classList.add('active');
-        setTimeout(() => map.invalidateSize(), 200); // Обновление размера карты
-      } else if (tab === 'profile') {
-        document.getElementById('page-map').style.display = 'none';
-        document.getElementById('page-profile').classList.add('active');
-        event.currentTarget.classList.add('active');
-        
-        // Заполняем данные из Telegram
-        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-          document.getElementById('user-id').innerText = tg.initDataUnsafe.user.id;
-        }
-      }
-    }
-
-    // Запуск при загрузке
-    window.onload = () => {
-      initMap();
-    };
-  </script>
+        // Инициализация приложения
+        window.app = new CarGuardingApp();
+    </script>
 </body>
 </html>
