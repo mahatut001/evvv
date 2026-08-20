@@ -483,14 +483,8 @@
             constructor() {
                 this.tg = window.Telegram?.WebApp || {};
                 
-                // Динамическое определение URL бэкенда
-                if (window.location.origin.startsWith('http://localhost') || window.location.origin.startsWith('http://127.0.0.1')) {
-                    this.apiUrl = 'http://localhost:8000';
-                } else if (window.location.origin && window.location.origin !== 'null' && !window.location.origin.includes('file://')) {
-                    this.apiUrl = window.location.origin;
-                } else {
-                    this.apiUrl = 'http://localhost:8000';
-                }
+                // Прямой адрес вашей ngrok-сессии
+                this.apiUrl = 'https://jamel-townish-matilda.ngrok-free.dev';
 
                 this.initData = this.tg.initData || '';
                 this.userId = null;
